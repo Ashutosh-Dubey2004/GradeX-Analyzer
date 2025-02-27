@@ -11,10 +11,13 @@ from processCaptcha import process_captcha
 
 abort = False
 
-def extractSubjects(driver):
+def extractSubjects(driver,course):
     try:
         print("Extracting subjects...")
-        base_xpath = "/html/body/form/div[3]/div/div[2]/table/tbody/tr[7]/td[1]/div/table/tbody/tr[3]/td[1]/table[{}]/tbody/tr[1]/td[1]"
+        if course == "DDMCA":
+            base_xpath = "/html/body/form/div[3]/div/div[2]/table/tbody/tr[7]/td[1]/div/table/tbody/tr[3]/td[1]/table[{}]/tbody/tr[1]/td[1]"
+        else:
+            base_xpath = "/html/body/form/div[3]/div/div[2]/table/tbody/tr[9]/td[1]/div/table/tbody/tr[3]/td[1]/table[{}]/tbody/tr[1]/td[1]"
 
         subjects = []
         for n in range(2, 9):
@@ -31,11 +34,14 @@ def extractSubjects(driver):
         print(f"Error extracting subjects: {e}")
         return []
 
-def extractResult(driver):
+def extractResult(driver,course):
     try:
         print("Extracting Result...")
-        # For Grades
-        base_xpath = "/html/body/form/div[3]/div/div[2]/table/tbody/tr[7]/td[1]/div/table/tbody/tr[3]/td[1]/table[{}]/tbody/tr[1]/td[4]"
+        # For Grades 7 -DDMCA , 9-MCA
+        if course == "DDMCA":
+            base_xpath = "/html/body/form/div[3]/div/div[2]/table/tbody/tr[7]/td[1]/div/table/tbody/tr[3]/td[1]/table[{}]/tbody/tr[1]/td[4]"
+        else:
+            base_xpath = "/html/body/form/div[3]/div/div[2]/table/tbody/tr[9]/td[1]/div/table/tbody/tr[3]/td[1]/table[{}]/tbody/tr[1]/td[4]"
 
         grades = []
         for n in range(2, 9):   
@@ -62,21 +68,21 @@ def extractResult(driver):
 def extractStudentInfo(driver):
     try:
         print("Extracting student information...")
-        xpaths = {
-            "name": "/html/body/form/div[3]/div/div[2]/table/tbody/tr[7]/td/div/table/tbody/tr[2]/td/table/tbody/tr[2]/td[2]/span",
-            "rollNo": "/html/body/form/div[3]/div/div[2]/table/tbody/tr[7]/td/div/table/tbody/tr[2]/td/table/tbody/tr[2]/td[4]/span",
-            "course": "/html/body/form/div[3]/div/div[2]/table/tbody/tr[7]/td/div/table/tbody/tr[2]/td/table/tbody/tr[3]/td[2]/span",
-            "branch": "/html/body/form/div[3]/div/div[2]/table/tbody/tr[7]/td/div/table/tbody/tr[2]/td/table/tbody/tr[3]/td[4]",
-            "semester": "/html/body/form/div[3]/div/div[2]/table/tbody/tr[7]/td/div/table/tbody/tr[2]/td/table/tbody/tr[4]/td[2]",
-            "status": "/html/body/form/div[3]/div/div[2]/table/tbody/tr[7]/td/div/table/tbody/tr[2]/td/table/tbody/tr[4]/td[4]/span"
+        Ids = {
+            "name": "ctl00_ContentPlaceHolder1_lblNameGrading",
+            "rollNo": "ctl00_ContentPlaceHolder1_lblRollNoGrading",
+            "course": "ctl00_ContentPlaceHolder1_lblProgramGrading",
+            "branch": "ctl00_ContentPlaceHolder1_lblBranchGrading",
+            "semester": "ctl00_ContentPlaceHolder1_lblSemesterGrading",
+            "status": "ctl00_ContentPlaceHolder1_lblStatusGrading"
         }
 
         studentInfo = []
-        for key, xpath in xpaths.items():
+        for key, id in Ids.items():
             try:
-                # element = driver.find_element(By.XPATH, xpath)
+                # element = driver.find_element(By.ID, id)
                 # studentInfo.append(element.text.strip())
-                studentInfo.append(driver.find_element(By.XPATH, xpath).text.strip())
+                studentInfo.append(driver.find_element(By.ID, id).text.strip())
             except NoSuchElementException:
                 studentInfo.append("N/A")
 
@@ -85,28 +91,32 @@ def extractStudentInfo(driver):
         print(f"Error extracting student info: {e}")
         return []
 
-def extractCompleteStudentInfo(driver):
+def extractCompleteStudentInfo(driver,course):
     try:
         # studentInfo = extractStudentInfo(driver)
         # grades = extractResult(driver)
         # return studentInfo + grades
-        return extractStudentInfo(driver) + extractResult(driver)
+        return extractStudentInfo(driver) + extractResult(driver,course)
     except Exception as e:
         print(f"Error extracting complete student info: {e}")
         return []
 
-def collectResultData(driver, isFirstStudent):
+def reset(driver):
+    driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_btnReset").click()
+
+def collectResultData(driver, course, isFirstStudent):
     try:
         print(f"Collecting result data... {isFirstStudent}")
         if isFirstStudent:
-            headerRow = ['Name', 'Roll No.', 'Course', 'Branch', 'Semester', 'Status'] + extractSubjects(driver) + ['SGPA', 'CGPA', 'Result']
+            headerRow = ['Name', 'Roll No.', 'Course', 'Branch', 'Semester', 'Status'] + extractSubjects(driver,course) + ['SGPA', 'CGPA', 'Result']
             data = [headerRow]
         else:
             data = []
 
         # temp = extractCompleteStudentInfo(driver)
         # data.append(temp)
-        data.append(extractCompleteStudentInfo(driver))
+        data.append(extractCompleteStudentInfo(driver,course))
+        reset(driver)
         return data
     except Exception as e:
         print(f"Error collecting result data: {e}")
@@ -126,9 +136,9 @@ def checkInvalidRollNumber(driver):
         print(f"Error checking invalid roll number: {e}")
         return False
 
-def retrieveStudentResult(driver, URL, rollNo, semester, isFirstSuccess):
+def retrieveStudentResult(driver, rollNo, course, semester, isFirstSuccess):
     try:
-        driver.get(URL)
+        # driver.get(URL)
 
         # rollNoInput = driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_txtrollno")
         # rollNoInput.send_keys(rollNo)
@@ -164,7 +174,7 @@ def retrieveStudentResult(driver, URL, rollNo, semester, isFirstSuccess):
                 continue
 
             time.sleep(2)
-            resultData = collectResultData(driver, isFirstSuccess)
+            resultData = collectResultData(driver, course, isFirstSuccess)
             print(f"First successful result fetched for: {rollNo}" if isFirstSuccess else f"Result Fetched for {rollNo}")
             return resultData, False  # isFirstSuccess False after first success
 
@@ -185,13 +195,21 @@ def retrieveMultipleResults(course, semester, prefixRollNo, rollStart, rollEnd):
     # else:
     #     print("Error: Invalid Course")
     #     return []
-    URL = "https://result.rgpv.ac.in/Result/McaDDrslt.aspx" if course == 'DDMCA' else "https://result.rgpv.ac.in/Result/MCArslt.aspx"
+    # URL = "https://result.rgpv.ac.in/Result/McaDDrslt.aspx" if course == 'DDMCA' else "https://result.rgpv.ac.in/Result/MCArslt.aspx"
+
+    URL = "https://result.rgpv.ac.in/Result/"
     
     options = Options()
     # options.add_argument("--headless=new")  #Chrome Window Not Visible
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--log-level=3")  # Suppresses warnings
     driver = webdriver.Chrome(options=options)
+
+    driver.get(URL)
+    if course == 'DDMCA':
+        driver.find_element(By.ID, "radlstProgram_12").click()
+    elif course == 'MCA' :
+        driver.find_element(By.ID, "radlstProgram_17").click()
 
     try:
         for rollNo in range(rollStart, rollEnd + 1):
@@ -202,7 +220,7 @@ def retrieveMultipleResults(course, semester, prefixRollNo, rollStart, rollEnd):
             fullRollNo = f"{prefixRollNo}{str(rollNo).zfill(2)}"
             print(f"Fetching result for: {fullRollNo}")
 
-            studentData, isFirstSuccess = retrieveStudentResult(driver, URL, fullRollNo, semester, isFirstSuccess)
+            studentData, isFirstSuccess = retrieveStudentResult(driver, fullRollNo, course, semester, isFirstSuccess)
 
             if studentData is None:
                 print(f"Skipped Roll No: {fullRollNo}")
@@ -218,6 +236,6 @@ def retrieveMultipleResults(course, semester, prefixRollNo, rollStart, rollEnd):
 
 if __name__ == '__main__':
     data = retrieveMultipleResults('DDMCA', '7', '0827CA21DD', 5, 6)
-    # data = retrieveMultipleResults('MCA', '3', '0827CA2310', 5, 6)
+    # data = retrieveMultipleResults('MCA', '3', '0827CA2310', 5, 8)
     from pprint import pprint
     pprint(data)
