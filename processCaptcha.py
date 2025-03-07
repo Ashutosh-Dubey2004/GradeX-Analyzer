@@ -22,5 +22,4 @@ def process_captcha(image_element):
     captcha_text = "".join(extracted_text).replace(" ", "")
     return captcha_text
     '''
-    
     return "".join(reader.readtext(cv2.cvtColor(np.array(Image.open(BytesIO(image_element.screenshot_as_png))), cv2.COLOR_RGB2GRAY), detail=0)).replace(" ", "")

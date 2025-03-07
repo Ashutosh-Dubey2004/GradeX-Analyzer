@@ -89,7 +89,6 @@ def fetch_result():
 
         if data:
             excel.save_to_excel(data, course, sem, batch, sheet_listbox)  # Save fetched data
-    
             root.after(0, lambda: (close_fetching_popup(), messagebox.showinfo("Success", "Results fetched and saved successfully!")))
         else:
             root.after(0, lambda: (close_fetching_popup(),messagebox.showerror("Error", "No results fetched. Please try again!")))
@@ -192,14 +191,14 @@ def center_window(window):
 
 # Main window setup
 root = tk.Tk()
-root.title("RGPV AutoFetch - Automated Result Fetcher")
+root.title("GradeX Analyzer – Efficient Result Extraction, Smarter Data Use")
 root.geometry("1100x650")
 root.resizable(False, False)
 root.configure(bg="#f0f0f0")
 center_window(root)
 
 # Title label
-title_label = tk.Label(root, text="RGPV AutoFetch", font=("Arial", 16, "bold"), bg="#003366", fg="white", padx=20, pady=10)
+title_label = tk.Label(root, text="GradeX Analyzer", font=("Arial", 16, "bold"), bg="#003366", fg="white", padx=20, pady=10)
 title_label.pack(fill=tk.X)
 
 # Footer section
