@@ -1,8 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-import optimized
-from optimized import retrieveMultipleResults
+import retrieveResults
+from retrieveResults import retrieveMultipleResults
 import excel
 import threading
 import winsound  # For playing sound
@@ -62,11 +62,11 @@ def validate_inputs():
 # Fetch Results
 loop_thread = None
 fetching_window = None  # Global reference to store popup window
-optimized.abort = False  # Variable to track cancellation
+retrieveResults.abort = False  # Variable to track cancellation
 
 def fetch():
     global loop_thread
-    optimized.abort = False  # Reset abort flag before starting
+    retrieveResults.abort = False  # Reset abort flag before starting
     loop_thread = threading.Thread(target=fetch_result, daemon=True)
     loop_thread.start()
 
@@ -77,13 +77,13 @@ def fetch_result():
         
         show_fetching_popup()  # Show fetching popup before starting
         
-        if optimized.abort:  # If cancelled, stop execution
+        if retrieveResults.abort:  # If cancelled, stop execution
             close_fetching_popup()
             return  
 
         data = retrieveMultipleResults(course, sem, prefixRollNO, startRollNo, endRollNo)
 
-        if optimized.abort:  # Double-check before processing data
+        if retrieveResults.abort:  # Double-check before processing data
             close_fetching_popup()
             return  
 
@@ -137,7 +137,7 @@ def close_fetching_popup():
 def cancel_fetching():
     """Handles cancellation of fetching process"""
     global loop_thread
-    optimized.abort = True  # Set abort flag
+    retrieveResults.abort = True  # Set abort flag
 
     if loop_thread and loop_thread.is_alive():
         loop_thread.join(timeout=1)  # Ensure thread stops execution
@@ -147,7 +147,7 @@ def cancel_fetching():
 
 def stop():
     """Stops the fetching process"""
-    optimized.abort = True 
+    retrieveResults.abort = True 
 
 def show_developer_info():
     dev_window = tk.Toplevel(root)
