@@ -1,10 +1,15 @@
 import cv2
 import numpy as np
-import easyocr
 from PIL import Image
 from io import BytesIO
 
-reader = easyocr.Reader(["en"])
+# reader = easyocr.Reader(["en"])
+def load_easyocr():
+    global reader
+    import easyocr  
+    reader = easyocr.Reader(['en'])  
+    print("EasyOCR Loaded Successfully!")
+
 
 def process_captcha(image_element):
     """Processes captcha using EasyOCR."""

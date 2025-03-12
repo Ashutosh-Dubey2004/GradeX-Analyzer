@@ -7,11 +7,31 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 
-from processCaptcha import process_captcha
+from processCaptcha import process_captcha,load_easyocr
+
+def init_easyocr():
+    load_easyocr()
 
 abort = False
 
-def extractSubjects(driver,course):
+def reset(driver):
+    driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_btnReset").click()
+
+def checkInvalidRollNumber(driver):
+    try:
+        WebDriverWait(driver, 5).until(EC.alert_is_present())
+        alert = driver.switch_to.alert
+        print(f"Alert Detected: {alert.text}")
+        alert.accept()
+        time.sleep(1)
+        return True
+    except TimeoutException:
+        return False
+    except Exception as e:
+        print(f"Error checking invalid roll number: {e}")
+        return False
+
+def extractSubjects(driver,course,semester):
     try:
         print("Extracting subjects...")
         if course == "DDMCA":
@@ -20,7 +40,12 @@ def extractSubjects(driver,course):
             base_xpath = "/html/body/form/div[3]/div/div[2]/table/tbody/tr[9]/td[1]/div/table/tbody/tr[3]/td[1]/table[{}]/tbody/tr[1]/td[1]"
 
         subjects = []
-        for n in range(2, 9):
+        if course == 'MCA' and semester == 4:
+            totalSubject = range(2, 7)
+        else:
+            totalSubject = range(2, 9)
+
+        for n in totalSubject:
             try:
                 # xpath = base_xpath.format(n)
                 # element = driver.find_element(By.XPATH, xpath)
@@ -34,7 +59,7 @@ def extractSubjects(driver,course):
         print(f"Error extracting subjects: {e}")
         return []
 
-def extractResult(driver,course):
+def extractResult(driver,course, semester):
     try:
         print("Extracting Result...")
         # For Grades 7 -DDMCA , 9-MCA
@@ -44,7 +69,12 @@ def extractResult(driver,course):
             base_xpath = "/html/body/form/div[3]/div/div[2]/table/tbody/tr[9]/td[1]/div/table/tbody/tr[3]/td[1]/table[{}]/tbody/tr[1]/td[4]"
 
         grades = []
-        for n in range(2, 9):   
+        if course == 'MCA' and semester == 4:
+            totalSubject = range(2, 7)
+        else:
+            totalSubject = range(2, 9)
+
+        for n in totalSubject:   
             try:
                 # xpath = base_xpath.format(n)
                 # element = driver.find_element(By.XPATH, xpath)
@@ -91,151 +121,162 @@ def extractStudentInfo(driver):
         print(f"Error extracting student info: {e}")
         return []
 
-def extractCompleteStudentInfo(driver,course):
+def extractCompleteStudentInfo(driver,course,semester):
     try:
         # studentInfo = extractStudentInfo(driver)
         # grades = extractResult(driver)
         # return studentInfo + grades
-        return extractStudentInfo(driver) + extractResult(driver,course)
+        return extractStudentInfo(driver) + extractResult(driver,course,semester)
     except Exception as e:
         print(f"Error extracting complete student info: {e}")
         return []
 
-def reset(driver):
-    driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_btnReset").click()
-
-def collectResultData(driver, course, isFirstStudent):
+def collectResultData(driver, course, semester, isFirstStudent):
     try:
         print(f"Collecting result data... {isFirstStudent}")
+        data = []
         if isFirstStudent:
-            headerRow = ['Name', 'Roll No.', 'Course', 'Branch', 'Semester', 'Status'] + extractSubjects(driver,course) + ['SGPA', 'CGPA', 'Result']
-            data = [headerRow]
-        else:
-            data = []
+            headerRow = ['Name', 'Roll No.', 'Course', 'Branch', 'Semester', 'Status'] + extractSubjects(driver,course,semester) + ['SGPA', 'CGPA', 'Result']
+            data.append(headerRow)
 
         # temp = extractCompleteStudentInfo(driver)
         # data.append(temp)
-        data.append(extractCompleteStudentInfo(driver,course))
+        # data.append(extractCompleteStudentInfo(driver,course))
+
+        studentData = extractCompleteStudentInfo(driver, course, semester)
+        if studentData:
+            data.append(studentData)
+        else:
+            print("Warning: No student data extracted.")
+
         reset(driver)
         return data
+    
     except Exception as e:
         print(f"Error collecting result data: {e}")
         return []
 
-def checkInvalidRollNumber(driver):
-    try:
-        WebDriverWait(driver, 5).until(EC.alert_is_present())
-        alert = driver.switch_to.alert
-        print(f"Alert Detected: {alert.text}")
-        alert.accept()
-        time.sleep(1)
-        return True
-    except TimeoutException:
-        return False
-    except Exception as e:
-        print(f"Error checking invalid roll number: {e}")
-        return False
-
 def retrieveStudentResult(driver, rollNo, course, semester, isFirstSuccess):
+    currentURL = driver.current_url
     try:
-        # driver.get(URL)
-
         # rollNoInput = driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_txtrollno")
         # rollNoInput.send_keys(rollNo)
         driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_txtrollno").send_keys(rollNo)
-        
+
         # sem = Select(driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_drpSemester"))
         # sem.select_by_value(semester)
+        Select(driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_drpSemester")).select_by_value(str(semester))
 
-        Select(driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_drpSemester")).select_by_value(semester)
-
-        attempt = 1
-        while attempt <= 2:
+        # Retry Logic for Captcha
+        for attempt in range(1, 3):  # Max 2 attempts
             print(f"Attempt {attempt} for {rollNo}")
-            time.sleep(2)
 
-            imageElement = driver.find_element(By.XPATH, "//img[@alt='Captcha']")
-            extractedText = process_captcha(imageElement)
-            capchaInput = driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_TextBox1")
-            capchaInput.clear()
-            capchaInput.send_keys(extractedText)
-            
-            viewResult = driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_btnviewresult")
+            time.sleep(2)  # Allow time for captcha to load
+            try:
+                imageElement = driver.find_element(By.XPATH, "//img[@alt='Captcha']")
+                extractedText = process_captcha(imageElement)
+                captchaInput = driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_TextBox1")
+                captchaInput.clear()
+                captchaInput.send_keys(extractedText)
 
-            time.sleep(3)
-            viewResult.click()
+                viewResult = driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_btnviewresult")
 
-            if checkInvalidRollNumber(driver):
-                print(f"Alert detected on attempt {attempt} for {rollNo}. Retrying...")
-                attempt += 1
-                if attempt > 2:
-                    print(f"Skipping {rollNo} after 2 failed attempts.")
-                    return None, isFirstSuccess
-                continue
+                time.sleep(2)
+                viewResult.click()
 
-            time.sleep(2)
-            resultData = collectResultData(driver, course, isFirstSuccess)
-            print(f"First successful result fetched for: {rollNo}" if isFirstSuccess else f"Result Fetched for {rollNo}")
-            return resultData, False  # isFirstSuccess False after first success
+                if checkInvalidRollNumber(driver):
+                    print(f"Invalid Roll Number or Captcha Failed. Retrying ({attempt}/2)...")
+                    continue
 
-    except Exception as e:
+                # time.sleep(2)
+                # Fetch and return result data
+                resultData = collectResultData(driver, course, semester, isFirstSuccess)
+                print(f"First successful result fetched for {rollNo}" if isFirstSuccess else f"Result fetched for {rollNo}")
+                return resultData, False  # Set isFirstSuccess to False after first success
+
+            except NoSuchElementException as e:
+                print(f"Error during attempt {attempt} for {rollNo}: {e}")
+
+        print(f"Skipping {rollNo} after 2 failed attempts.")
+        
+        driver.get(currentURL)  # Reset the page
+        return None, isFirstSuccess 
+
+    except (NoSuchElementException, TimeoutException) as e:
         print(f"Error occurred for {rollNo}: {e}")
-    return None, isFirstSuccess
+    except Exception as e:
+        print(f"Unexpected error for {rollNo}: {e}")
+
+    driver.get(currentURL)  # Reset the page
+    return None, isFirstSuccess  
 
 def retrieveMultipleResults(course, semester, prefixRollNo, rollStart, rollEnd):
     print("Retrieving multiple results...")
 
-    isFirstSuccess = True
-    data = []
-
-    # if course == 'DDMCA':
-    #     URL = "https://result.rgpv.ac.in/Result/McaDDrslt.aspx"
-    # elif course == 'MCA':
-    #     URL = "https://result.rgpv.ac.in/Result/MCArslt.aspx"
-    # else:
-    #     print("Error: Invalid Course")
-    #     return []
-    # URL = "https://result.rgpv.ac.in/Result/McaDDrslt.aspx" if course == 'DDMCA' else "https://result.rgpv.ac.in/Result/MCArslt.aspx"
+    if course not in ["DDMCA", "MCA"]:
+        print("Error: Invalid Course")
+        return []
 
     URL = "https://result.rgpv.ac.in/Result/"
-    
-    options = Options()
-    # options.add_argument("--headless=new")  #Chrome Window Not Visible
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--log-level=3")  # Suppresses warnings
-    driver = webdriver.Chrome(options=options)
+    # if course == "DDMCA":
+    #     course_id = "radlstProgram_12"
+    # elif course == "MCA":
+    #     course_id = "radlstProgram_17"
+    # else:
+    #     print("Invalid Course")
+    course_id = {"DDMCA": "radlstProgram_12", "MCA": "radlstProgram_17"}[course]
 
-    driver.get(URL)
-    if course == 'DDMCA':
-        driver.find_element(By.ID, "radlstProgram_12").click()
-    elif course == 'MCA' :
-        driver.find_element(By.ID, "radlstProgram_17").click()
+    options = Options()
+    options.add_argument("--headless=new")  #Chrome Window Not Visible
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--log-level=3")  # Suppress warnings
 
     try:
+        driver = webdriver.Chrome(options=options)
+        driver.get(URL)
+
+        # Select course
+        try:
+            driver.find_element(By.ID, course_id).click()
+        except NoSuchElementException:
+            print("Error: Course selection failed.")
+            driver.quit()
+            return []
+
+        data = []
+        isFirstSuccess = True
+
         for rollNo in range(rollStart, rollEnd + 1):
             if abort:
-                print("Abort")
-                return 
-            
+                print("Aborted")
+                break  
+
             fullRollNo = f"{prefixRollNo}{str(rollNo).zfill(2)}"
             print(f"Fetching result for: {fullRollNo}")
 
-            studentData, isFirstSuccess = retrieveStudentResult(driver, fullRollNo, course, semester, isFirstSuccess)
+            try:
+                studentData, isFirstSuccess = retrieveStudentResult(driver, fullRollNo, course, semester, isFirstSuccess)
+                if studentData:
+                    data.extend(studentData)
+                else:
+                    print(f"Skipped Roll No: {fullRollNo}")
 
-            if studentData is None:
-                print(f"Skipped Roll No: {fullRollNo}")
-                continue
+            except (TimeoutException, WebDriverException) as e:
+                print(f"Error fetching {fullRollNo}: {e}")
+                driver.quit()
+                return []
 
-            data.extend(studentData)
+        return data
 
     except WebDriverException as e:
         print(f"WebDriver Error: {e}")
+        return []
+
     finally:
-        driver.quit() 
-    return data
+        driver.quit()  
 
 if __name__ == '__main__':
-    data = retrieveMultipleResults('DDMCA', '7', '0827CA21DD', 5, 6)
-    # data = retrieveMultipleResults('MCA', '3', '0827CA2310', 5, 8)
+    # data = retrieveMultipleResults('DDMCA', '7', '0827CA21DD', 5, 8)
+    data = retrieveMultipleResults('MCA', '3', '0827CA2310', 5, 8)
     from pprint import pprint
     pprint(data)

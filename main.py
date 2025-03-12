@@ -7,6 +7,9 @@ import excel
 import threading
 import winsound  # For playing sound
 
+def load_easyocr():
+    retrieveResults.init_easyocr()
+
 def download_sheet():
     excel.download(sheet_listbox)
 
@@ -307,4 +310,7 @@ download_button = tk.Button(right_frame, text="Download Sheet", command=download
 download_button.pack(pady=15)
 
 excel.refresh_sheet_list(sheet_listbox)
+
+threading.Thread(target=load_easyocr, daemon=True).start()
+
 root.mainloop()
