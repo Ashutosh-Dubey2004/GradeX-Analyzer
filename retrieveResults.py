@@ -5,7 +5,7 @@ from selenium.webdriver.support.ui import Select
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException, StaleElementReferenceException
 
 from processCaptcha import process_captcha,load_easyocr
 
@@ -21,15 +21,26 @@ def checkInvalidRollNumber(driver):
     try:
         WebDriverWait(driver, 5).until(EC.alert_is_present())
         alert = driver.switch_to.alert
+        alert_text = alert.text.lower()  # Convert text to lowercase for case-insensitive matching
         print(f"Alert Detected: {alert.text}")
+
+        if "you have entered a wrong text" in alert_text:
+            alert.accept()  # Accept the alert
+            time.sleep(1)
+            return "retry"
+
+        elif "result for this enrollment no. not found" in alert_text:
+            alert.accept()
+            return "invalid_roll"
+
         alert.accept()
-        time.sleep(1)
-        return True
+        return None  # Some other unknown alert
+
     except TimeoutException:
-        return False
+        return None  
     except Exception as e:
         print(f"Error checking invalid roll number: {e}")
-        return False
+        return None
 
 def extractSubjects(driver,course,semester):
     try:
@@ -168,7 +179,8 @@ def retrieveStudentResult(driver, rollNo, course, semester, isFirstSuccess):
         Select(driver.find_element(By.ID, "ctl00_ContentPlaceHolder1_drpSemester")).select_by_value(str(semester))
 
         # Retry Logic for Captcha
-        for attempt in range(1, 3):  # Max 2 attempts
+        attempt = 1  # Initialize attempt counter
+        while True:  # Infinite loop until correct captcha
             print(f"Attempt {attempt} for {rollNo}")
 
             time.sleep(2)  # Allow time for captcha to load
@@ -184,23 +196,37 @@ def retrieveStudentResult(driver, rollNo, course, semester, isFirstSuccess):
                 time.sleep(2)
                 viewResult.click()
 
-                if checkInvalidRollNumber(driver):
-                    print(f"Invalid Roll Number or Captcha Failed. Retrying ({attempt}/2)...")
-                    continue
+                # ALERT CHECK
+                alert_status = checkInvalidRollNumber(driver)
+
+                if alert_status == "retry":
+                    print("Retrying due to incorrect captcha...")
+                    attempt += 1
+                    continue  # Retry with new captcha
+
+                elif alert_status == "invalid_roll":
+                    print(f"Skipping Roll Number {rollNo} (Invalid).")
+                    driver.get(currentURL)
+                    time.sleep(2)
+                    return None, False  # Move to next roll number
 
                 # time.sleep(2)
                 # Fetch and return result data
                 resultData = collectResultData(driver, course, semester, isFirstSuccess)
+
                 print(f"First successful result fetched for {rollNo}" if isFirstSuccess else f"Result fetched for {rollNo}")
+
                 return resultData, False  # Set isFirstSuccess to False after first success
 
+            except StaleElementReferenceException:
+                print("Element became stale, retrying...")
+                time.sleep(2)  
+                continue  
+            
             except NoSuchElementException as e:
                 print(f"Error during attempt {attempt} for {rollNo}: {e}")
 
-        print(f"Skipping {rollNo} after 2 failed attempts.")
-        
-        driver.get(currentURL)  # Reset the page
-        return None, isFirstSuccess 
+            attempt+=1
 
     except (NoSuchElementException, TimeoutException) as e:
         print(f"Error occurred for {rollNo}: {e}")
@@ -208,6 +234,7 @@ def retrieveStudentResult(driver, rollNo, course, semester, isFirstSuccess):
         print(f"Unexpected error for {rollNo}: {e}")
 
     driver.get(currentURL)  # Reset the page
+    time.sleep(2)
     return None, isFirstSuccess  
 
 def retrieveMultipleResults(course, semester, prefixRollNo, rollStart, rollEnd):
@@ -227,7 +254,7 @@ def retrieveMultipleResults(course, semester, prefixRollNo, rollStart, rollEnd):
     course_id = {"DDMCA": "radlstProgram_12", "MCA": "radlstProgram_17"}[course]
 
     options = Options()
-    options.add_argument("--headless=new")  #Chrome Window Not Visible
+    # options.add_argument("--headless=new")  #Chrome Window Not Visible
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--log-level=3")  # Suppress warnings
 

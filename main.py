@@ -189,7 +189,7 @@ def center_window(window):
     """Centers any given Tkinter window on the screen."""
     window.update_idletasks()
     x = (window.winfo_screenwidth() - window.winfo_width()) // 2
-    y = (window.winfo_screenheight() - window.winfo_height()) // 2
+    y = (window.winfo_screenheight() - window.winfo_height()) // 2 - 30
     window.geometry(f"+{x}+{y}")
 
 # Main window setup

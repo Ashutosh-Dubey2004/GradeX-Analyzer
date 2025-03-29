@@ -1,0 +1,13 @@
+tkinter
+threading
+winsound
+cv2
+numpy
+PIL
+io
+pandas
+os
+subprocess
+openpyxl
+time
+selenium
