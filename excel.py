@@ -34,6 +34,9 @@ def save_to_excel(data, course, semester, batch, sheet_listbox):
     filename = f"{course}_Sem{semester}_{batch}.xlsx"
     filepath = os.path.join(DBLOC, filename)
 
+    # Ensure output directory exists
+    os.makedirs(DBLOC, exist_ok=True)
+
     # Convert data to DataFrames
     student_df = pd.DataFrame(data[1:], columns=data[0])
     analysis_df = analysis.perform_analysis(student_df)
@@ -87,9 +90,19 @@ def save_to_excel(data, course, semester, batch, sheet_listbox):
                     cell.font = Font(bold=True)
 
 
-    wb.save(filepath)   # Save the file
+    # Handle PermissionError when saving file
+    while True:
+        try:
+            wb.save(filepath)
+            break  # If successful, break loop
+        except PermissionError:
+            messagebox.showerror("File Error", f"Close '{filename}' and try again.")
+            import time
+            time.sleep(3)  # Wait before retrying
 
-    refresh_sheet_list(sheet_listbox)
+    messagebox.showinfo("Success", f"Data saved successfully as {filename}!")
+
+    refresh_sheet_list(sheet_listbox) 
 
     
 def download(sheet_listbox):
