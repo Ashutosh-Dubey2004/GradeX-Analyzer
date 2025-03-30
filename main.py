@@ -1,3 +1,4 @@
+import socket
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -57,6 +58,13 @@ def validate_inputs():
     
     if startRollNo > endRollNo:
         messagebox.showerror("Input Error", "Start Roll No. cannot be greater than End Roll No.")
+        return None
+    
+    # Internet Connectivity Check
+    try:
+        socket.create_connection(("www.google.com", 80), timeout=5)
+    except OSError:
+        messagebox.showerror("Network Error", "No Internet Connection! Please connect and try again.")
         return None
     
     # If all validations pass, return the values
