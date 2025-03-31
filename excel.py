@@ -100,8 +100,6 @@ def save_to_excel(data, course, semester, batch, sheet_listbox):
             import time
             time.sleep(3)  # Wait before retrying
 
-    messagebox.showinfo("Success", f"Data saved successfully as {filename}!")
-
     refresh_sheet_list(sheet_listbox) 
 
     

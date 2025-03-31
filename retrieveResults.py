@@ -254,7 +254,7 @@ def retrieveMultipleResults(course, semester, prefixRollNo, rollStart, rollEnd):
     course_id = {"DDMCA": "radlstProgram_12", "MCA": "radlstProgram_17"}[course]
 
     options = Options()
-    # options.add_argument("--headless=new")  #Chrome Window Not Visible
+    options.add_argument("--headless=new")  #Chrome Window Not Visible
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--log-level=3")  # Suppress warnings
 
